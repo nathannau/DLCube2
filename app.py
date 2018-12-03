@@ -8,10 +8,12 @@ from Cube import *
 
 
 pygame.init()
-fenetre = pygame.display.set_mode((800,800))
+fenetre = pygame.display.set_mode((400,400))
 
 cube = Cube()
-cube.shuffle(1)
+#cube.shuffle(1)
+cube.shuffleCube()
+cube.shuffle()
 
 continuer = True
 

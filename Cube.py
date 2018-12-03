@@ -83,8 +83,23 @@ class Cube:
         # print(disque, dir, act)
         self.cases = self.cases[self.permutation[act]]
 
+    def rotateCube(self, face, dir) :
+        """rotate one disque, 
+        disque 
+            0- from top
+            1- from rigth
+            2- from front
+        dir
+            0- clockwise
+            1- counterclockwise"""
+        self.rotate(face*2 + 0, dir)
+        self.rotate(face*2 + 1, dir)
+    
     def shuffle(self, count=17) :
         for i in range(count) :
             self.rotate(random.randint(0, 5), random.randint(0, 1))
         
-        pass
+    def shuffleCube(self, count=5) :
+        for i in range(count) :
+            self.rotateCube(random.randint(0, 2), random.randint(0, 1))
+        
