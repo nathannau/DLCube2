@@ -3,17 +3,18 @@ import pygame.display
 import pygame.surface
 import pygame.event
 from pygame.locals import *
-
-from Cube import *
-
+from cube import Cube
+from solver import Solver
 
 pygame.init()
 fenetre = pygame.display.set_mode((400,400))
 
 cube = Cube()
-#cube.shuffle(1)
 cube.shuffleCube()
-cube.shuffle()
+cube.shuffle(1)
+#cube.shuffle()
+
+solver = Solver(cube)
 
 continuer = True
 
@@ -52,8 +53,15 @@ while (continuer) :
             cube.rotate(5, 0)
         elif event.type == KEYDOWN and event.key == K_w : # z
             cube.rotate(5, 1)
-        
-        if event.type == KEYDOWN : print(cube.isSolved())
+        elif event.type == KEYDOWN and event.key == K_p : # p
+            if (solver.is_alive()) :
+                solver.stop()
+                print("stop")
+            else:
+                solver.start()
+                print("start")
+ 
+        # if event.type == KEYDOWN : print(cube.isSolved())
 
 
         
