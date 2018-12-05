@@ -81,18 +81,46 @@ class Solver() :
     def trainModel(self, infos) :
         print(infos)
 
-        states = tf.constant([i["state"].tolist() for i in infos], shape=[infos.size, 24])
-        rewards = tf.constant([i["reward"] for i in infos], shape=[infos.size, 1])
-        next_states = tf.constant([i["next_state"].tolist() for i in infos], shape=[infos.size, 24])
-        actions = tf.constant([i["action"] for i in infos], shape=[infos.size, 12])
-        
-        # print(states)
-        # states = tf.constant( [i["state"] for i in infos], shape=[infos.size, 24])
+        with self.graph.as_default():
+            # tf.convert_to_tensor
+            states = tf.constant([i["state"].tolist() for i in infos], shape=[infos.size, 24])
+            # rewards = tf.constant([i["reward"] for i in infos], shape=[infos.size, 1])
+            rewards = [i["reward"] for i in infos]
+            next_states = tf.constant([i["next_state"].tolist() for i in infos], shape=[infos.size, 24])
+            # next_states = [i["next_state"] for i in infos]
+            # next_states = tf.Variable([i["next_state"].tolist() for i in infos], shape=[infos.size, 24])
+            # next_states = np.array([i["next_state"].tolist() for i in infos])
+            actions = tf.constant([i["action"] for i in infos], shape=[infos.size, 12])
+            
+            # print(states, rewards, next_states)
+            # next_states = [i["next_state"].tolist() for i in infos]
+            # print(states)
+            # states = tf.constant( [i["state"] for i in infos], shape=[infos.size, 24])
 
-        QstepPlus1 = self.model.predict(next_states, steps=infos.size )
-        Qtargets = tf.tensor2d(QstepPlus1.max(1).expandDims(1).mul(tf.scalar(0.99)).add(rewards).buffer().values, shape=[infos.size, 1])
-        print(Qtargets)
-        self.optimizer.minimize(self.modelLoss(states, actions, Qtargets))
+
+            # print(next_states)
+            QstepPlus1 = self.model.predict(next_states, steps=1)
+            # QstepPlus1 = self.model.predict(next_states)
+            # print("QstepPlus1")
+            # print(type(QstepPlus1))
+            # print(QstepPlus1)
+            # print("QstepPlus1.max(1)")
+            # print(QstepPlus1.max(1))
+            # print("QstepPlus1.max(1).expandDims(1)")
+            # # print(tf.expand_dims(QstepPlus1.max(1),1))
+            # print(np.expand_dims(QstepPlus1.max(1), 1))
+            # print("QstepPlus1.max(1).expand_dims(1).mul(0.99)")
+            # print(np.expand_dims(QstepPlus1.max(1), 1) * 0.99)
+            print("QstepPlus1.max(1).expand_dims(1).mul(0.99).add(rewards)")
+            print(rewards)
+            print(np.expand_dims(QstepPlus1.max(1), 1) * 0.99)
+            print(np.expand_dims(QstepPlus1.max(1), 1) * 0.99 + rewards)
+            # exit()
+            # Qtargets = tf.tensor2d(QstepPlus1.max(1).expand_dims(1).mul(tf.scalar(0.99)).add(rewards).buffer().values, shape=[infos.size, 1])
+            Qtargets = tf.constant(np.expand_dims(QstepPlus1.max(1), 1) * 0.99 + rewards, shape=[infos.size, 1])
+            print(Qtargets)
+            self.optimizer.minimize(self.modelLoss(states, actions, Qtargets))
+
 
         exit()
         # tf.constant()
@@ -102,11 +130,12 @@ class Solver() :
 
         # self.optimizer.minimize()
 
-    def modelLoss(states, actions, Qtargets) :
+    def modelLoss(self, states, actions, Qtargets) :
         return self.model.predict(states).sub(Qtargets).square().mul(actions).mean()
 
 
     def start(self) :
+        # self._run()
         if self.thread is not None and self.thread.is_alive() : return
         self.thread = Thread(target=self._run)
         self.thread.start()
@@ -120,16 +149,19 @@ class Solver() :
         return self.thread is not None and self.thread.is_alive()
 
     def _createModel(self) :
+        self.graph = tf.get_default_graph()
         self.model = Sequential([ \
             Dense(48, activation=tf.keras.activations.relu, input_dim=24), \
             Dense(12, activation=tf.keras.activations.linear) \
         ])
         # self.model.compile("adam", loss=tf.keras.losses.mean_squared_error)
 
-        # state = np.random.randint(0, 6, (1, 24))
-        # labels = self.model.predict(state)
+        # state = np.random.randint(0, 6, (2, 24))
+        # state = tf.constant(state, shape=[2, 24])
+        # labels = self.model.predict(state, steps=2)
+        # print(state)
         # print(labels)
-
+        # exit()
         # adam = tf.train.AdamOptimizer()
         # adam.minimize()
         # labels = np.random.random((1, 6))

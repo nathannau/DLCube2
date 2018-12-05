@@ -10,9 +10,9 @@ pygame.init()
 fenetre = pygame.display.set_mode((400,400))
 
 cube = Cube()
-cube.shuffleCube()
-cube.shuffle(1)
-#cube.shuffle()
+# cube.shuffleCube()
+# cube.shuffle(1)
+# cube.shuffle()
 
 solver = Solver(cube)
 
