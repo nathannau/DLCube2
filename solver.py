@@ -47,10 +47,10 @@ class Solver() :
                     self.cube.rotate(action//2, action%2)
                     reward = 1 if self.cube.isSolved() else 0
                     next_state = self.cube.save()
-                    action_array = [0, 0, 0, 0, 0, 0]
+                    action_array = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
                     action_array[action] = 1
                     # print (state, action, reward, next_state)
-                    info = { "state": state, "action": action_array, "reward": reward, "next_state": next_state }
+                    info = { "state": state, "action": action_array, "reward": [reward], "next_state": next_state }
                     index = random.randint(0, infos.size)
 
                     # print (infos, index)
@@ -78,16 +78,22 @@ class Solver() :
             label = self.model.predict(state)
             return tf.math.argmax(label)
 
-    def trainModel(self, infos):
+    def trainModel(self, infos) :
         print(infos)
 
         states = tf.constant([i["state"].tolist() for i in infos], shape=[infos.size, 24])
-        rewards = tf.constant([i["rewarde"].tolist() for i in infos], shape=[infos.size, 1])
+        rewards = tf.constant([i["reward"] for i in infos], shape=[infos.size, 1])
         next_states = tf.constant([i["next_state"].tolist() for i in infos], shape=[infos.size, 24])
-        actions = tf.constant([i["action"].tolist() for i in infos], shape=[infos.size, 6])
-
-        print(states)
+        actions = tf.constant([i["action"] for i in infos], shape=[infos.size, 12])
+        
+        # print(states)
         # states = tf.constant( [i["state"] for i in infos], shape=[infos.size, 24])
+
+        QstepPlus1 = self.model.predict(next_states, steps=infos.size )
+        Qtargets = tf.tensor2d(QstepPlus1.max(1).expandDims(1).mul(tf.scalar(0.99)).add(rewards).buffer().values, shape=[infos.size, 1])
+        print(Qtargets)
+        self.optimizer.minimize(self.modelLoss(states, actions, Qtargets))
+
         exit()
         # tf.constant()
 
@@ -96,10 +102,8 @@ class Solver() :
 
         # self.optimizer.minimize()
 
-    def modelLoss(states, actions, Qtargets)
-        return self.model.predict(states).sub(Qtargets).square().mul(tf_actions).mean()
-
-        pass
+    def modelLoss(states, actions, Qtargets) :
+        return self.model.predict(states).sub(Qtargets).square().mul(actions).mean()
 
 
     def start(self) :
@@ -118,7 +122,7 @@ class Solver() :
     def _createModel(self) :
         self.model = Sequential([ \
             Dense(48, activation=tf.keras.activations.relu, input_dim=24), \
-            Dense(6, activation=tf.keras.activations.linear) \
+            Dense(12, activation=tf.keras.activations.linear) \
         ])
         # self.model.compile("adam", loss=tf.keras.losses.mean_squared_error)
 
