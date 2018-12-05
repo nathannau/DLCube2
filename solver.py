@@ -47,52 +47,29 @@ class Solver() :
                     self.cube.rotate(action//2, action%2)
                     reward = 1 if self.cube.isSolved() else 0
                     next_state = self.cube.save()
-
+                    action_array = [0, 0, 0, 0, 0, 0]
+                    action_array[action] = 1
                     # print (state, action, reward, next_state)
-                    info = { "state": state, "action": action, "reward": reward, "next_state": next_state }
+                    info = { "state": state, "action": action_array, "reward": reward, "next_state": next_state }
                     index = random.randint(0, infos.size)
 
-                    print (infos, index)
+                    # print (infos, index)
                     if index == infos.size :
                         infos = np.append(infos, [info])
                     else :
                         infos = np.insert(infos, index, [info])
-                    print (infos)
+                    # print (infos)
                     state = next_state
 
                     if reward > 0 : break
 
-                if step == 1 : return
+                eps = max(0.1, eps*0.99)
+                if step % 2 == 0 : 
+                    self.trainModel(infos)
+                    return
 
 
             # for step in range(0, 200) :
-
-
-
-
-
-        # while True :
-        #     if (self.cancelEvent.is_set()) : return
-        #     # time.sleep(1)
-        #     # print("time.clock()")
-        #     # print(time.clock())
-        #     # print(time.ctime(time.time()))
-
-
-        #     state = np.random.randint(0, 6, (1, 24))
-
-        #     labels = self.model.predict(state)
-        #     print(labels)
-        #     labels = np.random.random((1, 6))
-        #     print(labels)
-        #     self.model.fit(state, labels)
-
-        #     labels = self.model.predict(state)
-        #     print(labels)
-
-
-        #     return
-            #self.model.fit()
 
     def pickAction(self, state, eps) :
         if random.random()<eps :
@@ -101,6 +78,28 @@ class Solver() :
             label = self.model.predict(state)
             return tf.math.argmax(label)
 
+    def trainModel(self, infos):
+        print(infos)
+
+        states = tf.constant([i["state"].tolist() for i in infos], shape=[infos.size, 24])
+        rewards = tf.constant([i["rewarde"].tolist() for i in infos], shape=[infos.size, 1])
+        next_states = tf.constant([i["next_state"].tolist() for i in infos], shape=[infos.size, 24])
+        actions = tf.constant([i["action"].tolist() for i in infos], shape=[infos.size, 6])
+
+        print(states)
+        # states = tf.constant( [i["state"] for i in infos], shape=[infos.size, 24])
+        exit()
+        # tf.constant()
+
+
+
+
+        # self.optimizer.minimize()
+
+    def modelLoss(states, actions, Qtargets)
+        return self.model.predict(states).sub(Qtargets).square().mul(tf_actions).mean()
+
+        pass
 
 
     def start(self) :
