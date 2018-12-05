@@ -6,6 +6,7 @@ from threading import Event, Thread
 
 import numpy as np
 import tensorflow as tf
+import tensorflow.math as tfm
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.models import Sequential
 
@@ -82,44 +83,22 @@ class Solver() :
         print(infos)
 
         with self.graph.as_default():
-            # tf.convert_to_tensor
             states = tf.constant([i["state"].tolist() for i in infos], shape=[infos.size, 24])
-            # rewards = tf.constant([i["reward"] for i in infos], shape=[infos.size, 1])
-            rewards = [i["reward"] for i in infos]
+            rewards = tf.constant([i["reward"] for i in infos], dtype=tf.float32, shape=[infos.size, 1])
             next_states = tf.constant([i["next_state"].tolist() for i in infos], shape=[infos.size, 24])
-            # next_states = [i["next_state"] for i in infos]
-            # next_states = tf.Variable([i["next_state"].tolist() for i in infos], shape=[infos.size, 24])
-            # next_states = np.array([i["next_state"].tolist() for i in infos])
-            actions = tf.constant([i["action"] for i in infos], shape=[infos.size, 12])
+            actions = tf.constant([i["action"] for i in infos], dtype=tf.float32, shape=[infos.size, 12])
             
-            # print(states, rewards, next_states)
-            # next_states = [i["next_state"].tolist() for i in infos]
-            # print(states)
-            # states = tf.constant( [i["state"] for i in infos], shape=[infos.size, 24])
+            Qtargets = tf.constant(self.model.predict(next_states, steps=1), shape=[infos.size, 12])
+            Qtargets = tfm.reduce_max(Qtargets, axis=1)
+            Qtargets = tf.expand_dims(Qtargets, axis=1)
+            Qtargets = tfm.scalar_mul(0.99, Qtargets)
+            Qtargets = tfm.add(Qtargets, rewards)
 
 
-            # print(next_states)
-            QstepPlus1 = self.model.predict(next_states, steps=1)
-            # QstepPlus1 = self.model.predict(next_states)
-            # print("QstepPlus1")
-            # print(type(QstepPlus1))
-            # print(QstepPlus1)
-            # print("QstepPlus1.max(1)")
-            # print(QstepPlus1.max(1))
-            # print("QstepPlus1.max(1).expandDims(1)")
-            # # print(tf.expand_dims(QstepPlus1.max(1),1))
-            # print(np.expand_dims(QstepPlus1.max(1), 1))
-            # print("QstepPlus1.max(1).expand_dims(1).mul(0.99)")
-            # print(np.expand_dims(QstepPlus1.max(1), 1) * 0.99)
-            print("QstepPlus1.max(1).expand_dims(1).mul(0.99).add(rewards)")
-            print(rewards)
-            print(np.expand_dims(QstepPlus1.max(1), 1) * 0.99)
-            print(np.expand_dims(QstepPlus1.max(1), 1) * 0.99 + rewards)
-            # exit()
-            # Qtargets = tf.tensor2d(QstepPlus1.max(1).expand_dims(1).mul(tf.scalar(0.99)).add(rewards).buffer().values, shape=[infos.size, 1])
-            Qtargets = tf.constant(np.expand_dims(QstepPlus1.max(1), 1) * 0.99 + rewards, shape=[infos.size, 1])
             print(Qtargets)
-            self.optimizer.minimize(self.modelLoss(states, actions, Qtargets))
+            print(tf.keras.backend.eval(Qtargets))
+            self.modelLoss(states, actions, Qtargets)
+            # self.optimizer.minimize(self.modelLoss(states, actions, Qtargets))
 
 
         exit()
@@ -131,6 +110,11 @@ class Solver() :
         # self.optimizer.minimize()
 
     def modelLoss(self, states, actions, Qtargets) :
+        loss = self.model.predict(states)
+        loss = tf.constant(loss, shape=[loss.size, 12])
+        loss = tfm.squared_difference(loss, Qtargets)
+        loss = tfm.multiply(loss, actions)
+
         return self.model.predict(states).sub(Qtargets).square().mul(actions).mean()
 
 
