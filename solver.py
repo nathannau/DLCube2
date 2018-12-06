@@ -96,10 +96,10 @@ class Solver() :
 
 
             print(Qtargets)
-            print(tf.keras.backend.eval(Qtargets))
-            self.modelLoss(states, actions, Qtargets)
+            # print(tf.keras.backend.eval(Qtargets))
+            loss = self.modelLoss(states, actions, Qtargets)
             # self.optimizer.minimize(self.modelLoss(states, actions, Qtargets))
-
+            self.optimizer.minimize(loss)
 
         exit()
         # tf.constant()
@@ -110,11 +110,41 @@ class Solver() :
         # self.optimizer.minimize()
 
     def modelLoss(self, states, actions, Qtargets) :
-        loss = self.model.predict(states)
-        loss = tf.constant(loss, shape=[loss.size, 12])
+        loss = self.model.predict(states, steps=1)
+        print("loss")
+        print(loss)
+        loss = tf.constant(loss, shape=[loss.size/12, 12])
+        print(tf.keras.backend.eval(loss))
+        print("tf.keras.backend.eval(Qtargets)")
+        print(tf.keras.backend.eval(Qtargets))
+        print("tf.keras.backend.eval(actions)")
+        print(tf.keras.backend.eval(actions))
         loss = tfm.squared_difference(loss, Qtargets)
         loss = tfm.multiply(loss, actions)
+        print("modelLoss")
+        print(tf.keras.backend.eval(loss))
+        loss = tfm.reduce_mean(loss, axis=0)
+        print(tf.keras.backend.eval(loss))
+        return loss
 
+
+        loss = self.model.predict(states, steps=1)
+        loss = tf.constant(loss, shape=[loss.size/12, 12])
+
+        target = tfm.multiply(actions, Qtargets)
+        # print("tf.keras.backend.eval(target)")
+        # print(tf.keras.backend.eval(target))
+        print("target")
+        print(tf.keras.backend.eval(target))
+        print("loss")
+        print(tf.keras.backend.eval(loss))
+        loss = tf.losses.mean_squared_error(target, loss, reduction=tf.losses.Reduction.NONE)
+        # loss = tf.losses.mean_squared_error(Qtargets, loss)
+        print(loss)
+        print(tf.keras.backend.eval(loss))
+
+
+        exit()
         return self.model.predict(states).sub(Qtargets).square().mul(actions).mean()
 
 
