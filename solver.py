@@ -33,7 +33,7 @@ class Solver() :
         
         eps = 1.0
         infos = np.array([])
-
+        win = 0
         for epi in range(0, 170) :
             for step in range(0, 200) :
                 self.cube.reset()
@@ -42,32 +42,42 @@ class Solver() :
                     self.cube.shuffle(epi//10+1)
 
                 state = self.cube.save()
-                for move in range(0, (epi//10+1)**2*4) :
+                stepInfos = np.array([])
+                # for move in range(0, (epi//10+1)**2*4) :
+                for move in range(0, epi//10+10) :
                     if (self.cancelEvent.is_set()) : return
                     action = self.pickAction(state, eps)
                     self.cube.rotate(action//2, action%2)
-                    reward = 1 if self.cube.isSolved() else 0
+                    reward = 1. if self.cube.isSolved() else 0.
                     next_state = self.cube.save()
                     action_array = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
                     action_array[action] = 1
                     # print (state, action, reward, next_state)
-                    info = { "state": state, "action": action_array, "reward": [reward], "next_state": next_state }
-                    index = random.randint(0, infos.size)
+                    info = { "state": state, "action": action_array, "reward": [0], "next_state": next_state }
 
-                    # print (infos, index)
+                    stepInfos = np.append(stepInfos, [info])
+                    index = random.randint(0, infos.size)
                     if index == infos.size :
                         infos = np.append(infos, [info])
                     else :
                         infos = np.insert(infos, index, [info])
-                    # print (infos)
                     state = next_state
 
-                    if reward > 0 : break
+                    if reward > 0. : break
 
-                eps = max(0.1, eps*0.99)
-                if step % 2 == 0 : 
+                if (reward==0.) : reward = -1.
+                else : win += 1
+
+                for i,info in enumerate(stepInfos) :
+                    info["reward"] = [ (i+1)*reward/stepInfos.size ]
+
+                eps = max(0.1, eps*0.999)
+                if step % 50 == 0 : 
+                    infos = infos[0:1000]
+                    print("eps:{0};\tepi:{1};\tstep:{2};\twin:{3};\tsize:{4}".format(eps, epi, step, win, infos.size))
+                    win = 0
                     self.trainModel(infos)
-                    return
+                    # return
 
 
             # for step in range(0, 200) :
@@ -76,34 +86,66 @@ class Solver() :
         if random.random()<eps :
             return random.randint(0, 11)
         else :
-            label = self.model.predict(state)
-            return tf.math.argmax(label)
+            with self.graph.as_default():
+                # print("state")
+                # print(state)
+                state = tf.constant(state, shape=[1, 24])
+                label = self.model.predict(state, steps=1)
+                # print(label)
+                # print(np.argmax(label))
+                return np.argmax(label)
+                # label = self.model.predict(state)
+                # print(label)
+                # ret = tf.math.argmax(label, axis=1)
+                # print(ret)
+                # ret = tf.keras.backend.eval(ret)
+                # print(ret)
+
+                # return ret[0]
 
     def trainModel(self, infos) :
-        print("infos")
-        print(infos)
+        # print("infos")
+        # print(infos.size)
 
         with self.graph.as_default():
             states = tf.constant([i["state"].tolist() for i in infos], shape=[infos.size, 24])
             rewards = tf.constant([i["reward"] for i in infos], dtype=tf.float32, shape=[infos.size, 1])
-            next_states = tf.constant([i["next_state"].tolist() for i in infos], shape=[infos.size, 24])
+            # next_states = tf.constant([i["next_state"].tolist() for i in infos], shape=[infos.size, 24])
             actions = tf.constant([i["action"] for i in infos], dtype=tf.float32, shape=[infos.size, 12])
 
                 
-            Qtargets = tf.constant(self.model.predict(next_states, steps=1), shape=[infos.size, 12])
-            Qtargets = tfm.reduce_max(Qtargets, axis=1)
-            print("self.model.predict(Qtargets)")
-            print(tf.keras.backend.eval(Qtargets))
-            Qtargets = tf.expand_dims(Qtargets, axis=1)
-            print(tf.keras.backend.eval(Qtargets))
-            Qtargets = tfm.scalar_mul(0.99, Qtargets)
-            print(tf.keras.backend.eval(Qtargets))
-            Qtargets = tfm.add(Qtargets, rewards)
-            print(tf.keras.backend.eval(Qtargets))
+            # Qtargets = tf.constant(self.model.predict(next_states, steps=1), shape=[infos.size, 12])
+            # Recupere l'etat actuel
+            targets = tf.constant(self.model.predict(states, steps=1), shape=[infos.size, 12])
+            # print("origin")
+            # print(tf.keras.backend.eval(targets))
+            # Calcure le mask negatif
+            mask = tf.ones([infos.size, 12], dtype=tf.float32)
+            mask = tfm.subtract(mask, actions)
+            # Applique le mask négatif
+            targets = tfm.multiply(targets, mask)
+
+            # Calcure le mask positif
+            mask = tfm.multiply(rewards, actions)
+            # Applique le mask positif
+            targets = tfm.add(targets, mask)
 
 
 
-            Qtargets = tf.constant(self.model.predict(next_states, steps=1), shape=[infos.size, 12])
+            # Qtargets = tfm.reduce_max(Qtargets, axis=1)
+            # print("self.model.predict(Qtargets)")
+            # print(tf.keras.backend.eval(Qtargets))
+            # Qtargets = tf.expand_dims(Qtargets, axis=1)
+            # print(tf.keras.backend.eval(Qtargets))
+            # Qtargets = tfm.scalar_mul(0.99, Qtargets)
+            # print(tf.keras.backend.eval(Qtargets))
+            # Qtargets = tfm.add(Qtargets, rewards)
+            # print("target")
+            # print(tf.keras.backend.eval(targets))
+
+
+
+            # Qtargets = tf.constant(self.model.predict(next_states, steps=1), shape=[infos.size, 12])
 
             # print("states")
             # print(states)
@@ -112,7 +154,7 @@ class Solver() :
             # print("self.model.predict(next_states, steps=1)")
             # print(self.model.predict(states, steps=1))
 
-            self.model.fit(states, Qtargets, steps_per_epoch = 20)
+            self.model.fit(states, targets, steps_per_epoch = 1000)
             # self.model.fit(states, Qtargets, steps_per_epoch = 20)
             # self.model.fit(states, Qtargets, steps_per_epoch = 20)
             # self.model.fit(states, Qtargets, steps_per_epoch = 20)
@@ -129,7 +171,7 @@ class Solver() :
             # self.optimizer.minimize(toto)
             # self.optimizer.minimize(loss)
 
-        exit()
+        # exit()
         # tf.constant()
 
 
@@ -137,50 +179,50 @@ class Solver() :
 
         # self.optimizer.minimize()
 
-    def modelLoss(self, states, actions, Qtargets) :
-        loss = self.model.predict(states, steps=1)
-        # print("loss")
-        # print(loss)
-        loss = tf.constant(loss, shape=[loss.size/12, 12])
-        # print(tf.keras.backend.eval(loss))
-        # print("tf.keras.backend.eval(Qtargets)")
-        # print(tf.keras.backend.eval(Qtargets))
-        # print("tf.keras.backend.eval(actions)")
-        # print(tf.keras.backend.eval(actions))
-        loss = tfm.squared_difference(loss, Qtargets)
-        loss = tfm.multiply(loss, actions)
-        # print("modelLoss")
-        # print(tf.keras.backend.eval(loss))
-        loss = tfm.reduce_mean(loss, axis=0)
-        # print(tf.keras.backend.eval(loss))
-        return loss
+    # def modelLoss(self, states, actions, Qtargets) :
+    #     loss = self.model.predict(states, steps=1)
+    #     # print("loss")
+    #     # print(loss)
+    #     loss = tf.constant(loss, shape=[loss.size/12, 12])
+    #     # print(tf.keras.backend.eval(loss))
+    #     # print("tf.keras.backend.eval(Qtargets)")
+    #     # print(tf.keras.backend.eval(Qtargets))
+    #     # print("tf.keras.backend.eval(actions)")
+    #     # print(tf.keras.backend.eval(actions))
+    #     loss = tfm.squared_difference(loss, Qtargets)
+    #     loss = tfm.multiply(loss, actions)
+    #     # print("modelLoss")
+    #     # print(tf.keras.backend.eval(loss))
+    #     loss = tfm.reduce_mean(loss, axis=0)
+    #     # print(tf.keras.backend.eval(loss))
+    #     return loss
 
 
-        # loss = self.model.predict(states, steps=1)
-        # loss = tf.constant(loss, shape=[loss.size/12, 12])
+    #     # loss = self.model.predict(states, steps=1)
+    #     # loss = tf.constant(loss, shape=[loss.size/12, 12])
 
-        # target = tfm.multiply(actions, Qtargets)
-        # # print("tf.keras.backend.eval(target)")
-        # # print(tf.keras.backend.eval(target))
-        # print("target")
-        # print(tf.keras.backend.eval(target))
-        # print("loss")
-        # print(tf.keras.backend.eval(loss))
-        # loss = tf.losses.mean_squared_error(target, loss, reduction=tf.losses.Reduction.NONE)
-        # # loss = tf.losses.mean_squared_error(Qtargets, loss)
-        # print(loss)
-        # print(tf.keras.backend.eval(loss))
+    #     # target = tfm.multiply(actions, Qtargets)
+    #     # # print("tf.keras.backend.eval(target)")
+    #     # # print(tf.keras.backend.eval(target))
+    #     # print("target")
+    #     # print(tf.keras.backend.eval(target))
+    #     # print("loss")
+    #     # print(tf.keras.backend.eval(loss))
+    #     # loss = tf.losses.mean_squared_error(target, loss, reduction=tf.losses.Reduction.NONE)
+    #     # # loss = tf.losses.mean_squared_error(Qtargets, loss)
+    #     # print(loss)
+    #     # print(tf.keras.backend.eval(loss))
 
 
-        # exit()
-        # return self.model.predict(states).sub(Qtargets).square().mul(actions).mean()
+    #     # exit()
+    #     # return self.model.predict(states).sub(Qtargets).square().mul(actions).mean()
 
 
     def start(self) :
-        self._run()
-        # if self.thread is not None and self.thread.is_alive() : return
-        # self.thread = Thread(target=self._run)
-        # self.thread.start()
+        # self._run()
+        if self.thread is not None and self.thread.is_alive() : return
+        self.thread = Thread(target=self._run)
+        self.thread.start()
 
     def stop(self) :
         if self.thread is None or not self.thread.is_alive() : return

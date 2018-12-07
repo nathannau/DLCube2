@@ -26,6 +26,7 @@ while (continuer) :
     for event in pygame.event.get() :
         if (event.type == QUIT) or \
             (event.type == KEYDOWN and event.key == K_ESCAPE) :
+            if (solver.is_alive()) : solver.stop()
             print('BYE !')
             continuer = False
             break
