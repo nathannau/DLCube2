@@ -5,8 +5,8 @@ import random
 from threading import Event, Thread
 
 import numpy as np
-import tensorflow as tf
 import tensorflow.math as tfm
+import tensorflow as tf
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.models import Sequential
 
@@ -23,7 +23,7 @@ class Solver() :
         self.thread = None
 
         self._createModel()
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=0.01)
+        # self.optimizer = tf.train.AdamOptimizer(learning_rate=0.01)
         # adam.minimize()
 
 
@@ -80,6 +80,7 @@ class Solver() :
             return tf.math.argmax(label)
 
     def trainModel(self, infos) :
+        print("infos")
         print(infos)
 
         with self.graph.as_default():
@@ -87,21 +88,48 @@ class Solver() :
             rewards = tf.constant([i["reward"] for i in infos], dtype=tf.float32, shape=[infos.size, 1])
             next_states = tf.constant([i["next_state"].tolist() for i in infos], shape=[infos.size, 24])
             actions = tf.constant([i["action"] for i in infos], dtype=tf.float32, shape=[infos.size, 12])
-            
+
+                
             Qtargets = tf.constant(self.model.predict(next_states, steps=1), shape=[infos.size, 12])
             Qtargets = tfm.reduce_max(Qtargets, axis=1)
+            print("self.model.predict(Qtargets)")
+            print(tf.keras.backend.eval(Qtargets))
             Qtargets = tf.expand_dims(Qtargets, axis=1)
+            print(tf.keras.backend.eval(Qtargets))
             Qtargets = tfm.scalar_mul(0.99, Qtargets)
+            print(tf.keras.backend.eval(Qtargets))
             Qtargets = tfm.add(Qtargets, rewards)
+            print(tf.keras.backend.eval(Qtargets))
 
 
-            print(Qtargets)
+
+            Qtargets = tf.constant(self.model.predict(next_states, steps=1), shape=[infos.size, 12])
+
+            # print("states")
+            # print(states)
+            # print("self.model.predict(next_states, steps=1)")
+            # print(self.model.predict(next_states, steps=1))
+            # print("self.model.predict(next_states, steps=1)")
+            # print(self.model.predict(states, steps=1))
+
+            self.model.fit(states, Qtargets, steps_per_epoch = 20)
+            # self.model.fit(states, Qtargets, steps_per_epoch = 20)
+            # self.model.fit(states, Qtargets, steps_per_epoch = 20)
+            # self.model.fit(states, Qtargets, steps_per_epoch = 20)
+            # self.model.fit(states, Qtargets, steps_per_epoch = 20)
+            # self.model.fit(states, Qtargets, steps_per_epoch = 20)
+
+            # print("self.model.predict(next_states, steps=1)")
+            # print(self.model.predict(states, steps=1))
+
+            # print(Qtargets)
             # print(tf.keras.backend.eval(Qtargets))
-            loss = self.modelLoss(states, actions, Qtargets)
+            # loss = self.modelLoss(states, actions, Qtargets)
             # self.optimizer.minimize(self.modelLoss(states, actions, Qtargets))
-            self.optimizer.minimize(loss)
+            # self.optimizer.minimize(toto)
+            # self.optimizer.minimize(loss)
 
-        exit()
+        # exit()
         # tf.constant()
 
 
@@ -111,48 +139,48 @@ class Solver() :
 
     def modelLoss(self, states, actions, Qtargets) :
         loss = self.model.predict(states, steps=1)
-        print("loss")
-        print(loss)
+        # print("loss")
+        # print(loss)
         loss = tf.constant(loss, shape=[loss.size/12, 12])
-        print(tf.keras.backend.eval(loss))
-        print("tf.keras.backend.eval(Qtargets)")
-        print(tf.keras.backend.eval(Qtargets))
-        print("tf.keras.backend.eval(actions)")
-        print(tf.keras.backend.eval(actions))
+        # print(tf.keras.backend.eval(loss))
+        # print("tf.keras.backend.eval(Qtargets)")
+        # print(tf.keras.backend.eval(Qtargets))
+        # print("tf.keras.backend.eval(actions)")
+        # print(tf.keras.backend.eval(actions))
         loss = tfm.squared_difference(loss, Qtargets)
         loss = tfm.multiply(loss, actions)
-        print("modelLoss")
-        print(tf.keras.backend.eval(loss))
+        # print("modelLoss")
+        # print(tf.keras.backend.eval(loss))
         loss = tfm.reduce_mean(loss, axis=0)
-        print(tf.keras.backend.eval(loss))
+        # print(tf.keras.backend.eval(loss))
         return loss
 
 
-        loss = self.model.predict(states, steps=1)
-        loss = tf.constant(loss, shape=[loss.size/12, 12])
+        # loss = self.model.predict(states, steps=1)
+        # loss = tf.constant(loss, shape=[loss.size/12, 12])
 
-        target = tfm.multiply(actions, Qtargets)
-        # print("tf.keras.backend.eval(target)")
+        # target = tfm.multiply(actions, Qtargets)
+        # # print("tf.keras.backend.eval(target)")
+        # # print(tf.keras.backend.eval(target))
+        # print("target")
         # print(tf.keras.backend.eval(target))
-        print("target")
-        print(tf.keras.backend.eval(target))
-        print("loss")
-        print(tf.keras.backend.eval(loss))
-        loss = tf.losses.mean_squared_error(target, loss, reduction=tf.losses.Reduction.NONE)
-        # loss = tf.losses.mean_squared_error(Qtargets, loss)
-        print(loss)
-        print(tf.keras.backend.eval(loss))
+        # print("loss")
+        # print(tf.keras.backend.eval(loss))
+        # loss = tf.losses.mean_squared_error(target, loss, reduction=tf.losses.Reduction.NONE)
+        # # loss = tf.losses.mean_squared_error(Qtargets, loss)
+        # print(loss)
+        # print(tf.keras.backend.eval(loss))
 
 
-        exit()
-        return self.model.predict(states).sub(Qtargets).square().mul(actions).mean()
+        # exit()
+        # return self.model.predict(states).sub(Qtargets).square().mul(actions).mean()
 
 
     def start(self) :
-        # self._run()
-        if self.thread is not None and self.thread.is_alive() : return
-        self.thread = Thread(target=self._run)
-        self.thread.start()
+        self._run()
+        # if self.thread is not None and self.thread.is_alive() : return
+        # self.thread = Thread(target=self._run)
+        # self.thread.start()
 
     def stop(self) :
         if self.thread is None or not self.thread.is_alive() : return
@@ -168,6 +196,8 @@ class Solver() :
             Dense(48, activation=tf.keras.activations.relu, input_dim=24), \
             Dense(12, activation=tf.keras.activations.linear) \
         ])
+        self.model.compile(optimizer = tf.train.AdamOptimizer(0.01), \
+            loss = tf.losses.mean_squared_error)
         # self.model.compile("adam", loss=tf.keras.losses.mean_squared_error)
 
         # state = np.random.randint(0, 6, (2, 24))
