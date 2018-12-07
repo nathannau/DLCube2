@@ -129,7 +129,7 @@ class Solver() :
             # self.optimizer.minimize(toto)
             # self.optimizer.minimize(loss)
 
-        # exit()
+        exit()
         # tf.constant()
 
 
