@@ -13,18 +13,16 @@ from tensorflow.keras.models import Sequential
 import cube
 
 
-# class Solver(Thread) :
+
 class Solver() :
 
     def __init__(self, cube) :
-        # Thread.__init__(self)
+
         self.cube = cube
         self.cancelEvent = Event()
         self.thread = None
 
         self._createModel()
-        # self.optimizer = tf.train.AdamOptimizer(learning_rate=0.01)
-        # adam.minimize()
 
 
 
@@ -33,26 +31,32 @@ class Solver() :
         
         eps = 1.0
         infos = np.array([])
-        win = 0
-        for epi in range(0, 170) :
-            for step in range(0, 200) :
+        for epi in range(0, 170, 10) :
+            if epi % 10 == 0 : eps = 1.0
+            
+            win = 0
+            step = 0
+            while win<45 :
+            # for step in range(0, 200) :
                 self.cube.reset()
-                self.cube.shuffleCube()
+                # self.cube.shuffleCube()
                 while self.cube.isSolved() :
                     self.cube.shuffle(epi//10+1)
-
+                self.cube.normalize()
                 state = self.cube.save()
                 stepInfos = np.array([])
-                # for move in range(0, (epi//10+1)**2*4) :
+
                 for move in range(0, epi//10+10) :
                     if (self.cancelEvent.is_set()) : return
                     action = self.pickAction(state, eps)
                     self.cube.rotate(action//2, action%2)
+                    self.cube.normalize()
+
                     reward = 1. if self.cube.isSolved() else 0.
                     next_state = self.cube.save()
                     action_array = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
                     action_array[action] = 1
-                    # print (state, action, reward, next_state)
+
                     info = { "state": state, "action": action_array, "reward": [0], "next_state": next_state }
 
                     stepInfos = np.append(stepInfos, [info])
@@ -69,43 +73,31 @@ class Solver() :
                 else : win += 1
 
                 for i,info in enumerate(stepInfos) :
-                    info["reward"] = [ (i+1)*reward/stepInfos.size ]
+                    info["reward"] = [ reward ]
+                    # info["reward"] = [ (i+1)*reward/stepInfos.size ]
 
                 eps = max(0.1, eps*0.999)
-                if step % 50 == 0 : 
+                if (step+1) % 50 == 0 : 
                     infos = infos[0:1000]
-                    print("eps:{0};\tepi:{1};\tstep:{2};\twin:{3};\tsize:{4}".format(eps, epi, step, win, infos.size))
+                    print("epi:{1};\tstep:{2};\twin:{3};\tsize:{4};\teps:{0};\t".format(eps, epi, step, win, infos.size))
                     win = 0
                     self.trainModel(infos)
-                    # return
 
+                step += 1
+                
 
-            # for step in range(0, 200) :
 
     def pickAction(self, state, eps) :
         if random.random()<eps :
             return random.randint(0, 11)
         else :
             with self.graph.as_default():
-                # print("state")
-                # print(state)
-                state = tf.constant(state, shape=[1, 24])
+                # state = tf.constant(state, shape=[1, 24])
+                state = np.reshape(state, (1,24))
                 label = self.model.predict(state, steps=1)
-                # print(label)
-                # print(np.argmax(label))
                 return np.argmax(label)
-                # label = self.model.predict(state)
-                # print(label)
-                # ret = tf.math.argmax(label, axis=1)
-                # print(ret)
-                # ret = tf.keras.backend.eval(ret)
-                # print(ret)
-
-                # return ret[0]
 
     def trainModel(self, infos) :
-        # print("infos")
-        # print(infos.size)
 
         with self.graph.as_default():
             states = tf.constant([i["state"].tolist() for i in infos], shape=[infos.size, 24])
@@ -117,8 +109,6 @@ class Solver() :
             # Qtargets = tf.constant(self.model.predict(next_states, steps=1), shape=[infos.size, 12])
             # Recupere l'etat actuel
             targets = tf.constant(self.model.predict(states, steps=1), shape=[infos.size, 12])
-            # print("origin")
-            # print(tf.keras.backend.eval(targets))
             # Calcure le mask negatif
             mask = tf.ones([infos.size, 12], dtype=tf.float32)
             mask = tfm.subtract(mask, actions)
@@ -131,91 +121,9 @@ class Solver() :
             targets = tfm.add(targets, mask)
 
 
-
-            # Qtargets = tfm.reduce_max(Qtargets, axis=1)
-            # print("self.model.predict(Qtargets)")
-            # print(tf.keras.backend.eval(Qtargets))
-            # Qtargets = tf.expand_dims(Qtargets, axis=1)
-            # print(tf.keras.backend.eval(Qtargets))
-            # Qtargets = tfm.scalar_mul(0.99, Qtargets)
-            # print(tf.keras.backend.eval(Qtargets))
-            # Qtargets = tfm.add(Qtargets, rewards)
-            # print("target")
-            # print(tf.keras.backend.eval(targets))
+            self.model.fit(states, targets, steps_per_epoch = 200) # 1000
 
 
-
-            # Qtargets = tf.constant(self.model.predict(next_states, steps=1), shape=[infos.size, 12])
-
-            # print("states")
-            # print(states)
-            # print("self.model.predict(next_states, steps=1)")
-            # print(self.model.predict(next_states, steps=1))
-            # print("self.model.predict(next_states, steps=1)")
-            # print(self.model.predict(states, steps=1))
-
-            self.model.fit(states, targets, steps_per_epoch = 1000)
-            # self.model.fit(states, Qtargets, steps_per_epoch = 20)
-            # self.model.fit(states, Qtargets, steps_per_epoch = 20)
-            # self.model.fit(states, Qtargets, steps_per_epoch = 20)
-            # self.model.fit(states, Qtargets, steps_per_epoch = 20)
-            # self.model.fit(states, Qtargets, steps_per_epoch = 20)
-
-            # print("self.model.predict(next_states, steps=1)")
-            # print(self.model.predict(states, steps=1))
-
-            # print(Qtargets)
-            # print(tf.keras.backend.eval(Qtargets))
-            # loss = self.modelLoss(states, actions, Qtargets)
-            # self.optimizer.minimize(self.modelLoss(states, actions, Qtargets))
-            # self.optimizer.minimize(toto)
-            # self.optimizer.minimize(loss)
-
-        # exit()
-        # tf.constant()
-
-
-
-
-        # self.optimizer.minimize()
-
-    # def modelLoss(self, states, actions, Qtargets) :
-    #     loss = self.model.predict(states, steps=1)
-    #     # print("loss")
-    #     # print(loss)
-    #     loss = tf.constant(loss, shape=[loss.size/12, 12])
-    #     # print(tf.keras.backend.eval(loss))
-    #     # print("tf.keras.backend.eval(Qtargets)")
-    #     # print(tf.keras.backend.eval(Qtargets))
-    #     # print("tf.keras.backend.eval(actions)")
-    #     # print(tf.keras.backend.eval(actions))
-    #     loss = tfm.squared_difference(loss, Qtargets)
-    #     loss = tfm.multiply(loss, actions)
-    #     # print("modelLoss")
-    #     # print(tf.keras.backend.eval(loss))
-    #     loss = tfm.reduce_mean(loss, axis=0)
-    #     # print(tf.keras.backend.eval(loss))
-    #     return loss
-
-
-    #     # loss = self.model.predict(states, steps=1)
-    #     # loss = tf.constant(loss, shape=[loss.size/12, 12])
-
-    #     # target = tfm.multiply(actions, Qtargets)
-    #     # # print("tf.keras.backend.eval(target)")
-    #     # # print(tf.keras.backend.eval(target))
-    #     # print("target")
-    #     # print(tf.keras.backend.eval(target))
-    #     # print("loss")
-    #     # print(tf.keras.backend.eval(loss))
-    #     # loss = tf.losses.mean_squared_error(target, loss, reduction=tf.losses.Reduction.NONE)
-    #     # # loss = tf.losses.mean_squared_error(Qtargets, loss)
-    #     # print(loss)
-    #     # print(tf.keras.backend.eval(loss))
-
-
-    #     # exit()
-    #     # return self.model.predict(states).sub(Qtargets).square().mul(actions).mean()
 
 
     def start(self) :
@@ -240,18 +148,3 @@ class Solver() :
         ])
         self.model.compile(optimizer = tf.train.AdamOptimizer(0.01), \
             loss = tf.losses.mean_squared_error)
-        # self.model.compile("adam", loss=tf.keras.losses.mean_squared_error)
-
-        # state = np.random.randint(0, 6, (2, 24))
-        # state = tf.constant(state, shape=[2, 24])
-        # labels = self.model.predict(state, steps=2)
-        # print(state)
-        # print(labels)
-        # exit()
-        # adam = tf.train.AdamOptimizer()
-        # adam.minimize()
-        # labels = np.random.random((1, 6))
-        # print(labels)
-        # for i in range(10) :
-        #     self.model.fit(state, labels, verbose=0)
-        #     print(self.model.predict(state))

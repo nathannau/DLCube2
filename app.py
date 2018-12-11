@@ -62,6 +62,7 @@ while (continuer) :
                 solver.start()
                 print("start")
  
+        # if event.type == KEYDOWN : cube.normalize()
         # if event.type == KEYDOWN : print(cube.isSolved())
 
 

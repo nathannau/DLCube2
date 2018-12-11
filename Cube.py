@@ -47,8 +47,22 @@ class Cube:
         self.colors = colors
 
     def reset(self) :
-        self.cases = np.array([0,0,0,0,1,1,2,2,3,3,4,4,1,1,2,2,3,3,4,4,5,5,5,5])
-        self.setColors([ Color(0xff,0xff,0xff), Color(0xff,0x33,0x33), Color(0x33,0xff,0x33), Color(0xff,0xff,0x33), Color(0x33,0x33,0xff), Color(0x33,0x33,0x33)  ])
+        self.cases = np.array([0,0,0,0,1,1,2,2,4,4,3,3,1,1,2,2,4,4,3,3,5,5,5,5])
+        self.setColors([ Color(0xff,0xff,0xff), Color(0xff,0x33,0x33), Color(0x33,0xff,0x33), Color(0x33,0x33,0xff), Color(0xff,0xff,0x33), Color(0x33,0x33,0x33)  ])
+
+    def normalize(self) :
+        c0 = self.cases[0]
+        c1 = self.cases[4]
+        c2 = self.cases[11]
+        colorSwap = [0, 0, 0, 0, 0, 0]
+        colorSwap[c0] = 0
+        colorSwap[c1] = 1
+        colorSwap[5-c2] = 2
+        colorSwap[c2] = 3
+        colorSwap[5-c1] = 4
+        colorSwap[5-c0] = 5
+        for i,c in enumerate(self.cases) :
+            self.cases[i] = colorSwap[c]
 
     def draw(self, fenetre) :
         w = min(fenetre.get_width(), fenetre.get_height()) / (np.array(self.zone).flatten().max() + 1)
